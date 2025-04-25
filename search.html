@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>搜索页面</title>
+    <title>搜索文章</title>
     <style>
       body {
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -91,13 +91,13 @@
     </style>
   </head>
   <body>
-    <h1>搜索文件</h1>
+    <h1>搜索文章</h1>
     <div class="search-container">
       <input
         type="text"
         class="search-input"
         id="search-input"
-        placeholder="搜索文件"
+        placeholder="搜索文章"
       />
       <button class="search-button" id="search-button">搜索</button>
     </div>
@@ -142,7 +142,7 @@
 
         if (results.length === 0) {
           parentElement.innerHTML =
-            '<li class="empty-message">没有找到匹配的文件</li>';
+            '<li class="empty-message">没有找到匹配的文章</li>';
           return;
         }
 
