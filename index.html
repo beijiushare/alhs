@@ -114,6 +114,7 @@
 
     <script>
       let currentPath = [];
+      const historyStack = [];
 
       async function loadJson() {
         try {
@@ -135,6 +136,8 @@
         home.textContent = "根目录";
         home.addEventListener("click", () => {
           currentPath = [];
+          historyStack.length = 0;
+          history.pushState({ path: [] }, null, null);
           updatePath();
           navigateToPath();
         });
@@ -165,6 +168,8 @@
           if (i < path.length - 1) {
             span.addEventListener("click", () => {
               currentPath = currentPath.slice(0, i + 1);
+              historyStack.length = i + 1;
+              history.pushState({ path: currentPath }, null, null);
               updatePath();
               navigateToPath();
             });
@@ -214,7 +219,10 @@
             // 文件夹
             li.innerHTML = `<span class="folder-icon">📁</span>${key}`;
             li.addEventListener("click", () => {
-              currentPath.push(key);
+              const newPath = [...currentPath, key];
+              historyStack.push([...currentPath]);
+              history.pushState({ path: newPath }, null, null);
+              currentPath = newPath;
               updatePath();
               navigateToPath();
             });
@@ -236,9 +244,18 @@
         }
       }
 
+      window.addEventListener("popstate", function (event) {
+        if (event.state && event.state.path) {
+          currentPath = event.state.path;
+          updatePath();
+          navigateToPath();
+        }
+      });
+
       // 初始化
       async function initialize() {
         const data = await loadJson();
+        history.pushState({ path: [] }, null, null);
         displayCatalog(data, document.getElementById("catalog"));
         updatePath();
       }
