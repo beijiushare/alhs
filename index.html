@@ -8,7 +8,7 @@
       body {
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         margin: 0;
-        padding: 20px;
+        padding: 0;
         background-color: #f0f2f5;
         color: #333;
       }
@@ -18,6 +18,40 @@
         color: #1a365d;
         margin-bottom: 20px;
         font-weight: 500;
+      }
+
+      .tab-container {
+        display: flex;
+        background-color: #e9ecef;
+        border-bottom: 1px solid #ccc;
+        padding: 5px 10px;
+      }
+
+      .tab {
+        padding: 5px 10px;
+        margin-right: 5px;
+        cursor: pointer;
+        background-color: #fff;
+        border: 1px solid #ccc;
+        border-bottom: none;
+        border-radius: 3px 3px 0 0;
+        display: flex;
+        align-items: center;
+      }
+
+      .tab.active {
+        background-color: #f0f2f5;
+        border-bottom: 1px solid #f0f2f5;
+      }
+
+      .close-tab {
+        margin-left: 5px;
+        cursor: pointer;
+        color: #999;
+      }
+
+      .close-tab:hover {
+        color: #333;
       }
 
       .path {
@@ -105,16 +139,26 @@
         font-style: italic;
         font-weight: 300;
       }
+
+      .tab-content {
+        display: none;
+        padding: 20px;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
     </style>
   </head>
+
   <body>
     <h1>艾利浩斯镜像</h1>
-    <div id="path" class="path"></div>
-    <ul id="catalog"></ul>
+    <div class="tab-container" id="tab-container"></div>
+    <div id="tab-content-container"></div>
 
     <script>
-      let currentPath = [];
-      const historyStack = [];
+      let currentTab = 0;
+      let tabCount = 0;
 
       async function loadJson() {
         try {
@@ -127,19 +171,95 @@
         }
       }
 
-      function updatePath() {
-        const pathElement = document.getElementById("path");
+      function createTab(title, currentPath) {
+        const tab = document.createElement("div");
+        tab.className = "tab";
+        tab.textContent = title;
+        tab.dataset.tabId = tabCount;
+        tab.addEventListener("click", () => switchTab(tab.dataset.tabId));
+
+        const closeTab = document.createElement("span");
+        closeTab.className = "close-tab";
+        closeTab.textContent = "×";
+        closeTab.addEventListener("click", (e) => {
+          e.stopPropagation();
+          closeTabHandler(tab.dataset.tabId);
+        });
+        tab.appendChild(closeTab);
+
+        document.getElementById("tab-container").appendChild(tab);
+
+        const tabContent = document.createElement("div");
+        tabContent.className = "tab-content";
+        tabContent.id = `tab-content-${tabCount}`;
+        tabContent.dataset.currentPath = JSON.stringify(currentPath);
+        document
+          .getElementById("tab-content-container")
+          .appendChild(tabContent);
+
+        const pathElement = document.createElement("div");
+        pathElement.className = "path";
+        tabContent.appendChild(pathElement);
+        updatePath(pathElement, currentPath);
+
+        const catalog = document.createElement("ul");
+        catalog.id = "catalog";
+        tabContent.appendChild(catalog);
+
+        tabCount++;
+        return tab.dataset.tabId;
+      }
+
+      function switchTab(tabId) {
+        const tabs = document.querySelectorAll(".tab");
+        const tabContents = document.querySelectorAll(".tab-content");
+
+        tabs.forEach((tab) => {
+          tab.classList.remove("active");
+        });
+        tabContents.forEach((content) => {
+          content.classList.remove("active");
+        });
+
+        const selectedTab = document.querySelector(
+          `.tab[data-tab-id="${tabId}"]`
+        );
+        const selectedContent = document.getElementById(`tab-content-${tabId}`);
+
+        selectedTab.classList.add("active");
+        selectedContent.classList.add("active");
+        currentTab = parseInt(tabId);
+      }
+
+      function closeTabHandler(tabId) {
+        const tab = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
+        const tabContent = document.getElementById(`tab-content-${tabId}`);
+
+        tab.remove();
+        tabContent.remove();
+
+        const tabs = document.querySelectorAll(".tab");
+        if (tabs.length === 0) {
+          return;
+        }
+        if (parseInt(tabId) === currentTab) {
+          const nextTabId = tabs.length > 1 ? tabs[0].dataset.tabId : null;
+          if (nextTabId) {
+            switchTab(nextTabId);
+          }
+        }
+      }
+
+      function updatePath(pathElement, currentPath) {
         pathElement.innerHTML = "";
 
         const home = document.createElement("span");
         home.className = "home";
         home.textContent = "根目录";
         home.addEventListener("click", () => {
-          currentPath = [];
-          historyStack.length = 0;
-          history.pushState({ path: [] }, null, null);
-          updatePath();
-          navigateToPath();
+          currentPath.length = 0;
+          updatePath(pathElement, currentPath);
+          navigateToPath(pathElement.closest(".tab-content"), currentPath);
         });
         pathElement.appendChild(home);
 
@@ -167,11 +287,9 @@
 
           if (i < path.length - 1) {
             span.addEventListener("click", () => {
-              currentPath = currentPath.slice(0, i + 1);
-              historyStack.length = i + 1;
-              history.pushState({ path: currentPath }, null, null);
-              updatePath();
-              navigateToPath();
+              currentPath.length = i + 1;
+              updatePath(pathElement, currentPath);
+              navigateToPath(pathElement.closest(".tab-content"), currentPath);
             });
           } else {
             span.style.fontWeight = "bold";
@@ -189,17 +307,20 @@
         }
       }
 
-      function navigateToPath() {
+      function navigateToPath(parentElement, currentPath) {
         loadJson().then((data) => {
           let currentData = data;
           try {
             for (const segment of currentPath) {
               currentData = currentData[segment];
             }
-            displayCatalog(currentData, document.getElementById("catalog"));
+            displayCatalog(
+              currentData,
+              parentElement.querySelector("#catalog")
+            );
           } catch (error) {
             console.error("路径导航错误:", error);
-            displayCatalog({}, document.getElementById("catalog"));
+            displayCatalog({}, parentElement.querySelector("#catalog"));
           }
         });
       }
@@ -219,24 +340,44 @@
             // 文件夹
             li.innerHTML = `<span class="folder-icon">📁</span>${key}`;
             li.addEventListener("click", () => {
+              const currentPath = JSON.parse(
+                li.closest(".tab-content").dataset.currentPath
+              );
               const newPath = [...currentPath, key];
-              historyStack.push([...currentPath]);
-              history.pushState({ path: newPath }, null, null);
-              currentPath = newPath;
-              updatePath();
-              navigateToPath();
+              li.closest(".tab-content").dataset.currentPath =
+                JSON.stringify(newPath);
+              updatePath(
+                li.closest(".tab-content").querySelector(".path"),
+                newPath
+              );
+              navigateToPath(li.closest(".tab-content"), newPath);
             });
           } else {
             // 文件
             li.className = "file";
             li.innerHTML = `<span class="file-icon">📄</span>${key}`;
             li.addEventListener("click", () => {
-              // 动态拼接路径并打开 Markdown 文件
+              const currentPath = JSON.parse(
+                li.closest(".tab-content").dataset.currentPath
+              );
+              const newPath = [...currentPath];
+              const newTabId = createTab(key, newPath);
+              switchTab(newTabId);
+              // 这里可以添加逻辑来加载文件内容，比如使用 iframe 等
+              // 目前假设 render.html 可以处理文件加载
               const filePath = `./${currentPath.join("/")}/${data[key]}`;
               const renderUrl = `render.html?file=${encodeURIComponent(
                 filePath
               )}`;
-              window.open(renderUrl, "_self");
+              const iframe = document.createElement("iframe");
+              iframe.src = renderUrl;
+              iframe.style.width = "100%";
+              iframe.style.height = "500px";
+              const catalog = document
+                .getElementById(`tab-content-${newTabId}`)
+                .querySelector("#catalog");
+              catalog.innerHTML = "";
+              catalog.appendChild(iframe);
             });
           }
 
@@ -244,20 +385,16 @@
         }
       }
 
-      window.addEventListener("popstate", function (event) {
-        if (event.state && event.state.path) {
-          currentPath = event.state.path;
-          updatePath();
-          navigateToPath();
-        }
-      });
-
       // 初始化
       async function initialize() {
+        const initialTabId = createTab("根目录", []);
+        const initialTabContent = document.getElementById(
+          `tab-content-${initialTabId}`
+        );
+
         const data = await loadJson();
-        history.pushState({ path: [] }, null, null);
-        displayCatalog(data, document.getElementById("catalog"));
-        updatePath();
+        displayCatalog(data, initialTabContent.querySelector("#catalog"));
+        switchTab(initialTabId);
       }
 
       initialize();
